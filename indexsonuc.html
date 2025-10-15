@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sonuç Gönderme</title>
+  <style>
+    :root {
+      --primary-color: #00c853;
+      --accent-color: #ff3d00;
+      --bg-color: #413e3e;
+      --card-bg: #1a1a1a;
+      --text-color: #f0f0f0;
+      --border-radius: 10px;
+      --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      --shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+    }
+
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: var(--font-family);
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      text-align: center;
+    }
+
+    h1 {
+      font-size: 2.5em;
+      color: var(--primary-color);
+      margin-bottom: 30px;
+      text-shadow: 0 0 10px rgba(0, 200, 83, 0.4);
+    }
+
+    .form-card {
+      background-color: var(--card-bg);
+      padding: 30px;
+      border-radius: var(--border-radius);
+      box-shadow: var(--shadow);
+      width: 320px;
+      max-width: 90%;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px;
+      margin: 10px 0;
+      border: 1px solid #444;
+      border-radius: var(--border-radius);
+      background-color: #2c2c2c;
+      color: var(--text-color);
+      font-size: 1em;
+    }
+
+    input::placeholder {
+      color: #999;
+    }
+
+    button {
+      padding: 12px 24px;
+      background-color: transparent;
+      color: var(--primary-color);
+      border: 2px solid var(--primary-color);
+      border-radius: var(--border-radius);
+      font-size: 1em;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 10px;
+      transition: all 0.3s ease;
+      width: 100%;
+    }
+
+    button:hover {
+      background-color: var(--primary-color);
+      color: #000;
+      box-shadow: 0 0 10px var(--primary-color);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    #successMessage {
+      display: none;
+      margin-top: 20px;
+      animation: fadeIn 0.6s ease;
+    }
+
+    #successMessage div {
+      font-size: 3rem;
+      color: var(--primary-color);
+    }
+
+    #successMessage p {
+      margin-top: 10px;
+      font-weight: bold;
+    }
+    
+    #loadingSpinner {
+      display: none;
+      margin-top: 15px;
+      color: var(--primary-color);
+    }
+
+    .spinner {
+      border: 4px solid rgba(0, 0, 0, 0.1);
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border-left-color: var(--primary-color);
+      animation: spin 1s linear infinite;
+      margin: 0 auto;
+    }
+
+    #errorMessage {
+      display: none;
+      margin-top: 20px;
+      color: var(--accent-color);
+      animation: fadeIn 0.6s ease;
+    }
+
+    .score-display {
+      background-color: #2c2c2c;
+      padding: 15px;
+      border-radius: var(--border-radius);
+      margin: 15px 0;
+      border: 1px solid #444;
+    }
+
+    .score-display p {
+      margin: 5px 0;
+      font-size: 1.1em;
+    }
+
+    .score-value {
+      font-weight: bold;
+      color: var(--primary-color);
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 480px) {
+      h1 {
+        font-size: 2em;
+      }
+
+      .form-card {
+        padding: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>Sonucunuzu Gönderin</h1>
+  <div class="form-card">
+    <input type="text" id="firstName" placeholder="Adınızı girin" required />
+    <input type="text" id="lastName" placeholder="Soyadınızı girin" required />
+    
+    <div class="score-display">
+      <p>Doğru: <span id="correctDisplay" class="score-value">0</span></p>
+      <p>Yanlış: <span id="wrongDisplay" class="score-value">0</span></p>
+    </div>
+    
+    <button id="submitButton" onclick="saveToGoogleSheet()">Sonucunu Gönder</button>
+    <button onclick="window.location.href='index.html'">Ana Sayfa</button>
+    <div id="loadingSpinner">
+      <div class="spinner"></div>
+      <p>Gönderiliyor...</p>
+    </div>
+    
+    <div id="successMessage">
+      <div>✅</div>
+      <p>Sonucunuz başarıyla gönderildi!</p>
+    </div>
+    
+    <div id="errorMessage">
+      <p>Veri gönderilirken bir hata oluştu. Lütfen tekrar deneyin.</p>
+      <p id="errorDetail"></p>
+    </div>
+  </div>
+    
+
+  <script>
+    // Sayfa yüklendiğinde skorları göster
+    document.addEventListener('DOMContentLoaded', function() {
+      const correctCount = parseInt(localStorage.getItem('finalCorrectCount')) || 0;
+      const wrongCount = parseInt(localStorage.getItem('finalWrongCount')) || 0;
+      
+      // Skorları göster
+      document.getElementById('correctDisplay').textContent = correctCount;
+      document.getElementById('wrongDisplay').textContent = wrongCount;
+      
+      console.log("Sayfa yüklendi, localStorage değerleri:", {
+        finalCorrectCount: localStorage.getItem('finalCorrectCount'),
+        finalWrongCount: localStorage.getItem('finalWrongCount')
+      });
+    });
+
+    async function saveToGoogleSheet() {
+      const firstName = document.getElementById("firstName").value.trim();
+      const lastName = document.getElementById("lastName").value.trim();
+      
+      // Artık finalCorrectCount ve finalWrongCount değerlerini kullanıyoruz
+      const correctRaw = localStorage.getItem('finalCorrectCount');
+      const wrongRaw = localStorage.getItem('finalWrongCount');
+      
+      console.log("Ham localStorage değerleri:", {
+        correctRaw: correctRaw,
+        wrongRaw: wrongRaw
+      });
+      
+      // Değerleri sayıya çevir
+      const correct = parseInt(correctRaw) || 0;
+      const wrong = parseInt(wrongRaw) || 0;
+      
+      console.log("Dönüştürülen değerler:", {
+        correct: correct,
+        wrong: wrong
+      });
+
+      if (firstName === "" || lastName === "") {
+        alert("Lütfen adınızı ve soyadınızı girin.");
+        return;
+      }
+
+      // Yükleme animasyonunu göster ve butonu devre dışı bırak
+      const submitButton = document.getElementById("submitButton");
+      const loadingSpinner = document.getElementById("loadingSpinner");
+      const errorMessage = document.getElementById("errorMessage");
+      const errorDetail = document.getElementById("errorDetail");
+      const successMessage = document.getElementById("successMessage");
+      
+      // Mesajları resetle
+      errorMessage.style.display = "none";
+      successMessage.style.display = "none";
+      
+      submitButton.disabled = true;
+      loadingSpinner.style.display = "block";
+      
+      // Apps Script URL'sini buraya yapıştırın (Dağıtımdan sonra aldığınız URL)
+      const url = "https://script.google.com/macros/s/AKfycbzNNV7PFPwwo5KfLLJwJM7M8O09rXFDWzmjVCIKI0ze3tFZ97LBzKUrL9o0ILKMDB4Ssg/exec";
+
+      try {
+        // İlk olarak JSON formatında veri göndermeyi deneyelim
+        console.log("JSON formatında veri gönderimi deneniyor...");
+        
+        const jsonData = {
+          name: firstName,
+          surname: lastName,
+          correctCount: correct,
+          wrongCount: wrong
+        };
+        
+        console.log("Gönderilen JSON verileri:", jsonData);
+        
+        const response = await fetch(url, {
+          method: "POST",
+          mode: "no-cors", // CORS hatalarını önlemek için
+          cache: "no-cache",
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+          },
+          body: JSON.stringify(jsonData)
+        });
+        
+        console.log("İlk yanıt alındı:", response);
+        
+        // no-cors modunda yanıt içeriğini okuyamayız
+        // Bu durumda JSONP yaklaşımı deneyelim
+        if (response.type === 'opaque') {
+          console.log("no-cors yanıtı alındı, JSONP denenecek...");
+          await sendWithJSONP(firstName, lastName, correct, wrong, url);
+        } else {
+          // Normal yanıt işleme
+          console.log("Yanıt durumu:", response.status);
+          
+          try {
+            const responseData = await response.json();
+            console.log("Yanıt verisi:", responseData);
+            
+            if (responseData && responseData.status === "success") {
+              // Başarı mesajını göster
+              successMessage.style.display = "block";
+              
+              // Skorları sıfırla
+              localStorage.removeItem('finalCorrectCount');
+              localStorage.removeItem('finalWrongCount');
+            } else {
+              throw new Error("Sunucu hatası: " + (responseData.message || "Bilinmeyen hata"));
+            }
+          } catch (jsonError) {
+            console.error("JSON işleme hatası:", jsonError);
+            
+            // Alternatif olarak form verisi gönderme yöntemini deneyelim
+            await sendWithFormData(firstName, lastName, correct, wrong, url);
+          }
+        }
+        
+        // İşlem tamamlandı
+        loadingSpinner.style.display = "none";
+        
+      } catch (error) {
+        console.error("Google Sheets'e yazma hatası:", error);
+        
+        // Son çare: URL parametreleri ile GET isteği gönder
+        try {
+          console.log("Son çare: GET isteği denenecek...");
+          await sendWithGetRequest(firstName, lastName, correct, wrong, url);
+        } catch (getError) {
+          console.error("GET isteği hatası:", getError);
+          
+          // Hata mesajını göster
+          errorMessage.style.display = "block";
+          errorDetail.textContent = "Tüm gönderim yöntemleri başarısız oldu: " + error.message;
+          
+          // Butonu tekrar aktifleştir
+          submitButton.disabled = false;
+          loadingSpinner.style.display = "none";
+        }
+      }
+    }
+    
+    // Form verileri ile gönderim
+    async function sendWithFormData(firstName, lastName, correct, wrong, url) {
+      console.log("Form verisi ile gönderim deneniyor...");
+      
+      // Form verilerini hazırla
+      const formData = new URLSearchParams();
+      formData.append('name', firstName);
+      formData.append('surname', lastName);
+      formData.append('correctCount', correct);
+      formData.append('wrongCount', wrong);
+      
+      console.log("Form verileri:", Object.fromEntries(formData));
+      
+      const formResponse = await fetch(url, {
+        method: "POST",
+        mode: "no-cors", // CORS hatalarını önlemek için
+        cache: "no-cache",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: formData
+      });
+      
+      console.log("Form yanıtı:", formResponse);
+      
+      // no-cors modunda başarılı kabul edelim
+      if (formResponse.type === 'opaque') {
+        // Veri gönderildi olarak kabul edelim
+        document.getElementById("successMessage").style.display = "block";
+        
+        // Skorları sıfırla
+        localStorage.removeItem('finalCorrectCount');
+        localStorage.removeItem('finalWrongCount');
+      } else {
+        // Normal yanıt işleme
+        processResponse(formResponse);
+      }
+    }
+    
+    // GET isteği ile gönderim
+    async function sendWithGetRequest(firstName, lastName, correct, wrong, url) {
+      console.log("GET isteği ile gönderim deneniyor...");
+      
+      // URL parametrelerini hazırla
+      const params = new URLSearchParams({
+        name: firstName,
+        surname: lastName,
+        correctCount: correct,
+        wrongCount: wrong
+      });
+      
+      const getResponse = await fetch(`${url}?${params.toString()}`, {
+        method: "GET",
+        mode: "no-cors", // CORS hatalarını önlemek için
+        cache: "no-cache"
+      });
+      
+      console.log("GET yanıtı:", getResponse);
+      
+      // no-cors modunda başarılı kabul edelim
+      if (getResponse.type === 'opaque') {
+        // Veri gönderildi olarak kabul edelim
+        document.getElementById("successMessage").style.display = "block";
+        
+        // Skorları sıfırla
+        localStorage.removeItem('finalCorrectCount');
+        localStorage.removeItem('finalWrongCount');
+      } else {
+        // Normal yanıt işleme
+        processResponse(getResponse);
+      }
+    }
+    
+    // JSONP ile gönderim (CORS sorunu varsa kullanılır)
+    function sendWithJSONP(firstName, lastName, correct, wrong, baseUrl) {
+      return new Promise((resolve, reject) => {
+        console.log("JSONP ile gönderim deneniyor...");
+        
+        // Callback fonksiyonu tanımla
+        const callbackName = 'jsonp_callback_' + Math.round(100000 * Math.random());
+        window[callbackName] = function(data) {
+          console.log("JSONP yanıtı alındı:", data);
+          
+          // Callback fonksiyonunu temizle
+          delete window[callbackName];
+          
+          // Script elementini kaldır
+          document.body.removeChild(script);
+          
+          if (data && (data.result === "success" || data.status === "success")) {
+            // Başarı mesajını göster
+            document.getElementById("successMessage").style.display = "block";
+            
+            // Skorları sıfırla
+            localStorage.removeItem('finalCorrectCount');
+            localStorage.removeItem('finalWrongCount');
+            
+            resolve(data);
+          } else {
+            reject(new Error("JSONP yanıtı başarısız: " + JSON.stringify(data)));
+          }
+        };
+        
+        // URL parametrelerini hazırla
+        const params = new URLSearchParams({
+          name: firstName,
+          surname: lastName,
+          correctCount: correct,
+          wrongCount: wrong,
+          callback: callbackName
+        });
+        
+        // Script elementini oluştur
+        const script = document.createElement('script');
+        script.src = `${baseUrl}?${params.toString()}`;
+        
+        // Hata durumu
+        script.onerror = function(error) {
+          // Callback fonksiyonunu temizle
+          delete window[callbackName];
+          
+          // Script elementini kaldır
+          document.body.removeChild(script);
+          
+          reject(new Error("JSONP yüklenirken hata oluştu"));
+        };
+        
+        // Script'i sayfaya ekle
+        document.body.appendChild(script);
+        
+        // 10 saniye zaman aşımı
+        setTimeout(() => {
+          if (window[callbackName]) {
+            // Callback hala çağrılmadı
+            delete window[callbackName];
+            document.body.removeChild(script);
+            reject(new Error("JSONP zaman aşımı"));
+          }
+        }, 10000);
+      });
+    }
+    
+    // Yanıt işleme fonksiyonu
+    async function processResponse(response) {
+      try {
+        const data = await response.json();
+        console.log("İşlenen yanıt verisi:", data);
+        
+        if (data && (data.result === "success" || data.status === "success")) {
+          // Başarı mesajını göster
+          document.getElementById("successMessage").style.display = "block";
+          
+          // Skorları sıfırla
+          localStorage.removeItem('finalCorrectCount');
+          localStorage.removeItem('finalWrongCount');
+        } else {
+          throw new Error("Yanıt başarısız: " + JSON.stringify(data));
+        }
+      } catch (error) {
+        console.error("Yanıt işleme hatası:", error);
+        throw error;
+      }
+    }
+  </script>
+</body>
+</html>
